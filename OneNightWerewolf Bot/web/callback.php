@@ -101,7 +101,7 @@ return;
 function DoActionAll($message_text){
   global $bot, $event, $link, $gameMode, $gameRoomId, $PEOPLE3, $game_room_num, $GAMEMODE_NOON;
   if ("@help" == $message_text) {
-    $textMessageBuilder = new \LINE\LINEBot\MessageBuilder\TextMessageBuilder("[ヘルプ]\n@gameをグループチャットでコメントすることでゲーム開始前待機時間に移行します。そしてグループチャットがゲームルームとして認識され、ルームナンバーが発行されます。\nルームナンバーをそのままコピーして個人チャットで私にコメントすれば参加者として認識されます。\nゲーム開始前待機時間では、@memberをコメントすることで現在の参加者を見ることが出来ます。参加者が揃ったら@startしてください。ゲームが始まり夜時間へと移行します。\n夜時間では個人チャットに送られる私のコメントに従って行動してください。村人、狂人、人狼、吊人も了解ボタンを押してください。全員の行動が終われば自動的に議論時間へと移行します。\n議論時間の初めに個人チャットに投票ボタンをコメントします。ゲームルームで議論をし、投票する相手を決め投票してください。全員の投票が終われば自動的に投票結果、勝敗が開示され、ゲームが終了します。\nもう一度同じメンバーでやりたい場合は@newgameを、終わりたい、メンバーを追加したい場合は@endをゲームルームでコメントしてください。\n\n※ゲーム中に私をゲームルームから削除するとゲームがリセットされます");
+    $textMessageBuilder = new \LINE\LINEBot\MessageBuilder\TextMessageBuilder("[ヘルプ]\n@gameをグループチャットでコメントすることでゲーム開始前待機時間に移行します。そしてグループチャットがゲームルームとして認識され、ルームナンバーが発行されます。\nルームナンバーをそのままコピーして個人チャットで私にコメントすれば参加者として認識されます。\nゲーム開始前待機時間では、@memberをコメントすることで現在の参加者を見ることが出来ます。参加者が揃ったら@startしてください。ゲームが始まり夜時間へと移行します。\n夜時間では個人チャットに送られる私のコメントに従って行動してください。村人、狂人、人狼、吊人も了解ボタンを押してください。全員の行動が終われば自動的に議論時間へと移行します。\n議論時間の初めに個人チャットに投票ボタンをコメントします。ゲームルームで議論をし、投票する相手を決め投票してください。全員の投票が終われば自動的に投票結果、勝敗が開示され、ゲームが終了します。\n最後に@endをゲームルームでコメントしてください。\n\n※ゲーム中に私をゲームルームから削除するとゲームがリセットされます");
     $response = $bot->replyMessage($event->replyToken, $textMessageBuilder);
   } else if ("@rule" == $message_text) {
     $textMessageBuilder = new \LINE\LINEBot\MessageBuilder\TextMessageBuilder("ルール説明だよ");
@@ -118,10 +118,10 @@ function DoActionAll($message_text){
   //   $message = CreateUranaiButton($event->source->userId);
   //   $response = $bot->replyMessage($event->replyToken, $message);
   //
-  // } else if ("@del" == $message_text) {// デバッグ用
-  //   $result = mysqli_query($link,"TRUNCATE TABLE game_room");
-  //   $result = mysqli_query($link,"TRUNCATE TABLE user");
-  //   $result = mysqli_query($link,"TRUNCATE TABLE user_temp");
+  } else if ("@del" == $message_text) {// デバッグ用
+    $result = mysqli_query($link,"TRUNCATE TABLE game_room");
+    $result = mysqli_query($link,"TRUNCATE TABLE user");
+    $result = mysqli_query($link,"TRUNCATE TABLE user_temp");
   } else if ("user" == $event->source->type) {// 一時的にこっち。最終的にはuser情報からテーブル持ってきて以下略（これだとゲーム中に途中参加できてしまう）
     $gameRoomNum = mysqli_real_escape_string($link, $message_text);
     $userId = mysqli_real_escape_string($link, $event->source->userId);
@@ -174,7 +174,7 @@ function DoActionBefore($message_text){
       }
       $gameRoomId = mysqli_real_escape_string($link, $gameRoomId);
       $result = mysqli_query($link, "insert into game_room (game_room_num, game_room_id, game_mode, num_of_people, num_of_roles, num_of_votes) values ('$roomNumber', '$gameRoomId', 'WAITING', 0, 0, 0);");
-      $textMessageBuilder = new \LINE\LINEBot\MessageBuilder\TextMessageBuilder("ルームナンバーを発行したよ！\nルームナンバーは「" . $roomNumber . "」だよ！\n個人チャットでこの数字をコメントすればゲームに参加できるよ！");
+      $textMessageBuilder = new \LINE\LINEBot\MessageBuilder\TextMessageBuilder("ルームナンバーを発行したよ！\nルームナンバーは「" . $roomNumber . "」だよ！\n個人チャットでこの数字をコメントすればゲームに参加できるよ！\n「@member」で現在参加者表示");
       $response = $bot->replyMessage($event->replyToken, $textMessageBuilder);
     }
   }
@@ -399,7 +399,7 @@ function DoActionNoon($message_text){
           $issue = "村陣営";
         }
       }
-      $text .= $issue . "の勝利！\n\nもう一度遊びたいときは「@newgame」、もう終わるときは「@end」をコメントしてね！";
+      $text .= $issue . "の勝利！\n\n「@end」をコメントしてね！";
 
       $textMessageBuilder = new \LINE\LINEBot\MessageBuilder\TextMessageBuilder($text);
 
@@ -419,34 +419,38 @@ function DoActionEnd($message_text){
     $result = mysqli_query($link, "select game_room_num from game_room where game_room_id = '$gameRoomId'");
     $row = mysqli_fetch_row($result);
     $game_room_num = $row[0];
-    if ("@newgame" == $message_text) {
-      $result = mysqli_query($link, "delete from game_room where game_room_num = '$game_room_num'");
-      $result = mysqli_query($link, "delete from user where game_room_num = '$game_room_num'");
-      $result = mysqli_query($link, "delete from user_temp where game_room_num = '$game_room_num'");
-      // ルームナンバー発行、テーブルにレコードを生成する、gameModeを移行する
-      while(true){
-        $gameRoomNum = mt_rand(100,999);
-        $gameRoomNum = mysqli_real_escape_string($link, $gameRoomNum);
-        $rnj = mysqli_query($link, "select * from game_room where game_room_num = '$gameRoomNum'");
-        $row = mysqli_fetch_row($rnj);
-        if(null == $row){
-          break;
-        }
-      }
-      $roomNumber = mysqli_real_escape_string($link, $gameRoomNum);
-      if ("group" == $event->source->type){
-        $gameRoomId = $event->source->groupId;
-      } else if ("room" == $event->source->type) {
-        $gameRoomId = $event->source->roomId;
-      }
-      $gameRoomId = mysqli_real_escape_string($link, $gameRoomId);
-      $result = mysqli_query($link, "insert into game_room (game_room_num, game_room_id, game_mode, num_of_people, num_of_roles, num_of_votes) values ('$roomNumber', '$gameRoomId', 'WAITING', 0, 0, 0);");
-      $textMessageBuilder = new \LINE\LINEBot\MessageBuilder\TextMessageBuilder("ルームナンバーを発行したよ！\nルームナンバーは「" . $roomNumber . "」だよ！\n個人チャットでこの数字をコメントすればゲームに参加できるよ！");
-      $response = $bot->replyMessage($event->replyToken, $textMessageBuilder);
-    } else if ("@end" == $message_text) {
-      $result = mysqli_query($link, "delete from game_room where game_room_num = '$game_room_num'");
-      $result = mysqli_query($link, "delete from user where game_room_num = '$game_room_num'");
-      $result = mysqli_query($link, "delete from user_temp where game_room_num = '$game_room_num'");
+    // if ("@newgame" == $message_text) {
+    //   $result = mysqli_query($link, "delete from game_room where game_room_num = '$game_room_num'");
+    //   $result = mysqli_query($link, "delete from user where game_room_num = '$game_room_num'");
+    //   $result = mysqli_query($link, "delete from user_temp where game_room_num = '$game_room_num'");
+    //   // ルームナンバー発行、テーブルにレコードを生成する、gameModeを移行する
+    //   while(true){
+    //     $gameRoomNum = mt_rand(100,999);
+    //     $gameRoomNum = mysqli_real_escape_string($link, $gameRoomNum);
+    //     $rnj = mysqli_query($link, "select * from game_room where game_room_num = '$gameRoomNum'");
+    //     $row = mysqli_fetch_row($rnj);
+    //     if(null == $row){
+    //       break;
+    //     }
+    //   }
+    //   $roomNumber = mysqli_real_escape_string($link, $gameRoomNum);
+    //   if ("group" == $event->source->type){
+    //     $gameRoomId = $event->source->groupId;
+    //   } else if ("room" == $event->source->type) {
+    //     $gameRoomId = $event->source->roomId;
+    //   }
+    //   $gameRoomId = mysqli_real_escape_string($link, $gameRoomId);
+    //   $result = mysqli_query($link, "insert into game_room (game_room_num, game_room_id, game_mode, num_of_people, num_of_roles, num_of_votes) values ('$roomNumber', '$gameRoomId', 'WAITING', 0, 0, 0);");
+    //   $textMessageBuilder = new \LINE\LINEBot\MessageBuilder\TextMessageBuilder("ルームナンバーを発行したよ！\nルームナンバーは「" . $roomNumber . "」だよ！\n個人チャットでこの数字をコメントすればゲームに参加できるよ！");
+    //   $response = $bot->replyMessage($event->replyToken, $textMessageBuilder);
+    // } else
+    if ("@end" == $message_text) {
+      // $result = mysqli_query($link, "delete from game_room where game_room_num = '$game_room_num'");
+      // $result = mysqli_query($link, "delete from user where game_room_num = '$game_room_num'");
+      // $result = mysqli_query($link, "delete from user_temp where game_room_num = '$game_room_num'");
+      $result = mysqli_query($link,"TRUNCATE TABLE game_room");
+      $result = mysqli_query($link,"TRUNCATE TABLE user");
+      $result = mysqli_query($link,"TRUNCATE TABLE user_temp");
 
       $textMessageBuilder = new \LINE\LINEBot\MessageBuilder\TextMessageBuilder("お疲れ様！\n飽きたら退出させてね！");
       $response = $bot->replyMessage($event->replyToken, $textMessageBuilder);
@@ -456,14 +460,15 @@ function DoActionEnd($message_text){
 //部屋に入ったときに諸々発言
 function DoActionJoin(){
   global $bot, $event;
-  $textMessageBuilder = new \LINE\LINEBot\MessageBuilder\TextMessageBuilder("僕はワンナイト人狼Botだよ！\n\nワンナイト人狼のルールを知りたいときは「@rule」\nこのbotの使い方を知りたいときは「@help」\nゲームを始めたいときは「@game」\n\nってコメントしてね！");
+  $textMessageBuilder = new \LINE\LINEBot\MessageBuilder\TextMessageBuilder("僕はワンナイト人狼Botだよ！(３～５人対応)\n\nワンナイト人狼のルールを知りたいときは「@rule」\nこのbotの使い方を知りたいときは「@help」\nゲームを始めたいときは「@game」\n\nってコメントしてね！");
   $response = $bot->replyMessage($event->replyToken, $textMessageBuilder);
 }
 //部屋から退出させられるときの処理
 function DoActionLeave(){
-  global $bot, $event;
-  $textMessageBuilder = new \LINE\LINEBot\MessageBuilder\TextMessageBuilder("ばいばーい！\nまたやりたくなったら入れてねー！");
-  $response = $bot->replyMessage($event->replyToken, $textMessageBuilder);
+  global $bot, $event, $link;
+  $result = mysqli_query($link,"TRUNCATE TABLE game_room");
+  $result = mysqli_query($link,"TRUNCATE TABLE user");
+  $result = mysqli_query($link,"TRUNCATE TABLE user_temp");
 }
 function Cast(){
   global $link, $gameRoomId;
